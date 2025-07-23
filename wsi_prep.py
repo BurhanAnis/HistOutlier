@@ -10,6 +10,11 @@ import os
 import glob
 import pickle
 import argparse
+import logging
+
+# configure logging once at module level
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 def get_annotations(annot_path, slide, level):
 
@@ -102,50 +107,59 @@ def build_slide_index(images_dir, annotations_dir, level, target_level, patch_si
                         recursive=True)
 
     print(f"🔎 Found {len(slide_paths)} .tif files under {images_dir!r}")
+    logger.info(f"🔎 Found {len(slide_paths)} .tif files under {images_dir!r}")
     for p in slide_paths[:10]:
-        print("  ", p)
+        logger.info("  %s", p)
+
 
     for slide_path in slide_paths:
-        fname = os.path.basename(slide_path)
-        slide_id, _ = os.path.splitext(fname)
-        label = slide_id.split('_')[0]
+        try:
+            fname = os.path.basename(slide_path)
+            slide_id, _ = os.path.splitext(fname)
+            label = slide_id.split('_')[0]
 
-        annot_subdir = os.path.join(annotations_dir, label)
-        annot_path = os.path.join(annot_subdir, slide_id + '.xml')
-        if not os.path.exists(annot_path):
-            annot_path = None
+            annot_subdir = os.path.join(annotations_dir, label)
+            annot_path = os.path.join(annot_subdir, slide_id + '.xml')
+            if not os.path.exists(annot_path):
+                annot_path = None
 
-        slide = openslide.OpenSlide(slide_path)
-        downsample = slide.level_downsamples[target_level]
-        mag_at_level = base_mag / downsample
+            slide = openslide.OpenSlide(slide_path)
+            downsample = slide.level_downsamples[target_level]
+            mag_at_level = base_mag / downsample
 
-        mask_thumb = get_tissue_mask(slide, level)
-        tumor_mask = None
-        if annot_path:
-            tumor_mask = get_tumor_mask(
-                get_annotations(annot_path, slide, level),
-                slide, 
-                level)
-        
-        patches, vis_coords =  get_tiles(
-            slide = slide,
-            mask_thumbnail = mask_thumb,
-            tumor_mask= tumor_mask,
-            level = level,
-            target_level= target_level,
-            patch_size = patch_size
-        )
+            mask_thumb = get_tissue_mask(slide, level)
+            tumor_mask = None
+            if annot_path:
+                tumor_mask = get_tumor_mask(
+                    get_annotations(annot_path, slide, level),
+                    slide, 
+                    level)
+            
+            patches, vis_coords =  get_tiles(
+                slide = slide,
+                mask_thumbnail = mask_thumb,
+                tumor_mask= tumor_mask,
+                level = level,
+                target_level= target_level,
+                patch_size = patch_size
+            )
 
-        slide_index[slide_id] = {
-            'slide_path': slide_path,
-            'label': label,
-            'annotation_path': annot_path,
-            'level': target_level,
-            'work_level': level,
-            'visualisation_coords': vis_coords,
-            'magnification': mag_at_level,
-            'patches': patches,
-        }
+            slide_index[slide_id] = {
+                'slide_path': slide_path,
+                'label': label,
+                'annotation_path': annot_path,
+                'level': target_level,
+                'work_level': level,
+                'visualisation_coords': vis_coords,
+                'magnification': mag_at_level,
+                'patches': patches,
+            }
+        except Exception as e:
+            logger.error("Failed to process slide %s: %s", slide_path, e,
+                         exc_info=True)
+            # continue to next slide
+            continue
+
     
     return slide_index
 
