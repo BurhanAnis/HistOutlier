@@ -101,6 +101,9 @@ def build_slide_index(images_dir, annotations_dir, level, target_level, patch_si
     slide_paths = glob.glob(os.path.join(images_dir, '**', '*.tif'),
                         recursive=True)
 
+    print(f"🔎 Found {len(slide_paths)} .tif files under {images_dir!r}")
+    for p in slide_paths[:10]:
+        print("  ", p)
 
     for slide_path in slide_paths:
         fname = os.path.basename(slide_path)
