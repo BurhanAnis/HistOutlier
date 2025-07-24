@@ -19,19 +19,23 @@ parser.add_argument('--index_path', type=str, required=True,
                     help='Path to the index-level pickle file')
 parser.add_argument('--aug_factor', type=int, default=50,
                     help='Number of augmented copies per positive sample')
+parser.add_argument('--num_workers', type = int, default = 4)
+parser.add_argument('--latent_dim', type = int, default = 128)
 parser.add_argument('--batch_size', type=int, default=32,
                     help='Batch size for DataLoader')
 parser.add_argument('--epochs', type=int, default=20,
                     help='Number of epochs for neg-only training')
 parser.add_argument('--output_dir', type=str, default = 'output/')
-parser.add_argument('--plot', type=bool, default = True)
+parser.add_argument('--plot', action='store_true')
 args = parser.parse_args()
 
 # Assign arguments to variables
 index_path = args.index_path
 AUG_FACTOR = args.aug_factor
+num_workers = args.num_workers
 batch_size = args.batch_size
 n_epochs = args.epochs
+latent_dim = args.latent_dim
 plot = args.plot
 
 output_path = os.path.join(args.output_dir, "latents_and_labels.npz")
@@ -90,8 +94,8 @@ else:
     train_ds = WSIDataset(train_augmented, base_transform, aug_transform)
     test_ds  = WSIDataset(test_raw,       base_transform, base_transform)
 
-    train_loader = DataLoader(train_ds, batch_size, shuffle=True,  num_workers=0)
-    test_loader  = DataLoader(test_ds,  batch_size, shuffle=False, num_workers=0)
+    train_loader = DataLoader(train_ds, batch_size, shuffle=True,  num_workers=num_workers)
+    test_loader  = DataLoader(test_ds,  batch_size, shuffle=False, num_workers=num_workers)
 
     total = len(test_ds.patches)
     positives = sum(1 for p in test_ds.patches if p['is_tumor'])
@@ -100,6 +104,7 @@ else:
     print(f'Test set: {total} patches')
     print(f'  ➤ Negatives (label 0): {negatives}')
     print(f'  ➤ Positives (label 1): {positives}')
+    print(f'Training patches size: {len(train_ds)} patches')
 
     neg_indices = [
         i
@@ -117,13 +122,13 @@ else:
     )
 
 
-    # 3) Set up model, loss, optimizer as before
+    # Set up model, loss, optimizer as before
     device = (
         torch.device('mps') if torch.backends.mps.is_available()
         else torch.device('cuda') if torch.cuda.is_available()
         else torch.device('cpu')
     )
-    model     = ConvAutoencoder(latent_dim=128).to(device)
+    model     = ConvAutoencoder(latent_dim=latent_dim).to(device)
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     n_epochs  = n_epochs
@@ -153,7 +158,7 @@ else:
     model.eval()
 
     # collect latents for the *normal* class only (or whichever class you want)
-    from tqdm import tqdm
+    
     latents = []
     for img, label in tqdm(train_ds):    # or use a DataLoader with batch_size
         if label != 0:                   # pick class 0 as “normal”
@@ -193,7 +198,7 @@ if plot:
 # (Optional) Subsample for faster t-SNE
     max_samples = 2000
     if len(latents_test) > max_samples:
-        idx = np.random.choice(len(latents), max_samples, replace=False)
+        idx = np.random.choice(len(latents_test), max_samples, replace=False)
         latents_test = latents_test[idx]
         true_labels  = true_labels[idx]
 
@@ -213,5 +218,5 @@ if plot:
     plt.legend()
     plt.tight_layout()
     plt.savefig(os.path.join(args.output_dir, "tsne_plot.png"))
-    plt.show()
+
 
