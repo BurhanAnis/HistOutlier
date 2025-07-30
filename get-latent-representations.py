@@ -167,8 +167,14 @@ else:
         epoch_loss = running_loss / len(neg_loader.dataset)
         print(f'Epoch {epoch}/{n_epochs} — Neg-only Loss: {epoch_loss:.6f}')
 
+    
+    if isinstance(model, nn.DataParallel):
+        real_model = model.module
+    else:
+        real_model = model
+
     # switch to eval mode
-    model.eval()
+    real_model.eval()
 
     # collect latents for the *normal* class only (or whichever class you want)
     
@@ -178,19 +184,18 @@ else:
             continue
         x = img.unsqueeze(0).to(device)
         with torch.no_grad():
-            z = model.encoder(x)         # shape (1, latent_dim)
+            z = real_model.encoder(x)         # shape (1, latent_dim)
         latents.append(z.cpu().squeeze().numpy())
 
     latents_normal = np.stack(latents)
 
     # Extract latents and true labels
-    model.eval()
     latents_list = []
     labels_list = []
     with torch.no_grad():
         for imgs, labels in test_loader:
             imgs = imgs.to(device)
-            z = model.encoder(imgs)                 # shape (batch, latent_dim)
+            z = real_model.encoder(imgs)                 # shape (batch, latent_dim)
             latents_list.append(z.cpu().numpy())
             labels_list.append(labels.numpy())
 
