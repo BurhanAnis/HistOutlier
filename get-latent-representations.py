@@ -27,7 +27,8 @@ parser.add_argument('--epochs', type=int, default=20,
                     help='Number of epochs for neg-only training')
 parser.add_argument('--output_dir', type=str, default = 'output/')
 parser.add_argument('--plot', action='store_true')
-parser.add_argument('--max_patches', type = int, default = None)
+parser.add_argument('--max_patches_train', type = int, default = None)
+parser.add_argument('--max_patches_test', type = int, default = None)
 args = parser.parse_args()
 
 # Assign arguments to variables
@@ -137,9 +138,13 @@ else:
         else torch.device('cpu')
     )
     model     = ConvAutoencoder(latent_dim=latent_dim).to(device)
+
+    if device.type == 'cuda' and torch.cuda.device_count() > 1:
+        print(f"=> Using {torch.cuda.device_count()} GPUs via DataParallel")
+        model = nn.DataParallel(model)
+        
     criterion = nn.MSELoss()
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
-    n_epochs  = n_epochs
 
 
 
