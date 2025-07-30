@@ -27,6 +27,7 @@ parser.add_argument('--epochs', type=int, default=20,
                     help='Number of epochs for neg-only training')
 parser.add_argument('--output_dir', type=str, default = 'output/')
 parser.add_argument('--plot', action='store_true')
+parser.add_argument('--max_patches', type = int, default = None)
 args = parser.parse_args()
 
 # Assign arguments to variables
@@ -70,7 +71,14 @@ else:
         test_size=0.5,
         stratify=labels,
         random_state=69
+
     )
+
+    if args.max_patches_train is not None:
+        train_raw = train_raw[: args.max_patches_train]
+    if args.max_patches_test is not None:
+        test_raw  = test_raw[:  args.max_patches_test]
+
 
     AUG_FACTOR = AUG_FACTOR   # how many extra rotated/flipped copies per positive
     train_augmented = []
