@@ -225,6 +225,7 @@ def main():
         model = ConvAutoencoder(latent_dim=args.latent_dim).to(device)
         if torch.cuda.device_count() > 1:
             model = nn.DataParallel(model)
+            print(f"→ Using DataParallel on GPUs: {model.device_ids}")
 
         criterion = nn.MSELoss()
         optimizer = optim.Adam(model.parameters(), lr=1e-3)
